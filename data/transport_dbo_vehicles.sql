@@ -1,0 +1,11 @@
+INSERT INTO transport.dbo.vehicles (id, identifier, seats, type_id) VALUES (12, N'AAAA                    ', 25, 1);
+INSERT INTO transport.dbo.vehicles (id, identifier, seats, type_id) VALUES (13, N'AAAB                    ', 50, 1);
+INSERT INTO transport.dbo.vehicles (id, identifier, seats, type_id) VALUES (14, N'AAAC                    ', 99, 1);
+INSERT INTO transport.dbo.vehicles (id, identifier, seats, type_id) VALUES (15, N'YYYY                    ', 35, 2);
+INSERT INTO transport.dbo.vehicles (id, identifier, seats, type_id) VALUES (16, N'YYYB                    ', 21, 2);
+INSERT INTO transport.dbo.vehicles (id, identifier, seats, type_id) VALUES (17, N'YYYC                    ', 69, 2);
+INSERT INTO transport.dbo.vehicles (id, identifier, seats, type_id) VALUES (18, N'YYYD                    ', 75, 2);
+INSERT INTO transport.dbo.vehicles (id, identifier, seats, type_id) VALUES (19, N'ZZZZ                    ', 55, 3);
+INSERT INTO transport.dbo.vehicles (id, identifier, seats, type_id) VALUES (20, N'ZZZB                    ', 33, 3);
+INSERT INTO transport.dbo.vehicles (id, identifier, seats, type_id) VALUES (21, N'ZZZC                    ', 20, 3);
+INSERT INTO transport.dbo.vehicles (id, identifier, seats, type_id) VALUES (22, N'ZZZD                    ', 54, 3);
