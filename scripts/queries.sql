@@ -1,85 +1,36 @@
-SET SHOWPLAN_TEXT On
-go
-SET SHOWPLAN_ALL On
-go
-SET SHOWPLAN_XML On
-go
-SET STATISTICS PROFILE On
-go
-SET STATISTICS XML On
+declare @current_date datetime2 = getdate()
 
-create table tickets
-(
-    id             int          not null,
-    name           varchar(255) not null,
-    price          money        not null,
-    expirationDate datetime2    not null,
-);
+declare @other_date datetime2;
+set @other_date = '2022-01-14 11:41:00'
 
--- |--Table Scan(OBJECT:([transport].[dbo].[Tickets]))
-select *
-from tickets
+print @current_date
+print @other_date
 
-drop table tickets;
-create table tickets
-(
-    id             int          primary key,
-    name           varchar(255) not null,
-    price          money        not null,
-    expirationDate datetime2    not null,
-);
+select datediff(hour, @other_date, @current_date)
 
--- |--Clustered Index Scan(OBJECT:([transport].[dbo].[Tickets].[PK__Tickets__3213E83F6FDD327D]))
-select *
-from tickets
+declare @total_vehicle_count int;
+select @total_vehicle_count = count(*)
+from vehicles;
 
+if @total_vehicle_count < 10
+    begin
+        select id, identifier from vehicles
+    end
+else
+    begin
+        declare @i int = 10;
+        while @i < 15
+            begin
+                insert into routes(number) values (concat('route ', @i))
+                set @i = @i + 1
+            end
+    end
 
---   |--Clustered Index Seek(OBJECT:([transport].[dbo].[Tickets].[PK__Tickets__3213E83F6FDD327D]),
---   SEEK:([transport].[dbo].[Tickets].[id]=CONVERT_IMPLICIT(int,[@1],0)) ORDERED FORWARD)
-select *
-from tickets
-where id = 10
-
-create nonclustered index idx_exp_dte on tickets(expirationDate)
-
--- Clustered Index Scan(OBJECT:([transport].[dbo].[tickets].[PK__tickets__3213E83FD37AF2AF]),
--- WHERE:([transport].[dbo].[tickets].[expirationDate]=getdate()))
-select *
-from tickets
-where expirationDate = GETDATE()
-
--- |--Nested Loops(Inner Join, OUTER REFERENCES:([transport].[dbo].[tickets].[id]))"
---    |--Index Scan(OBJECT:([transport].[dbo].[tickets].[idx_exp_dte]))
---    |--Clustered Index Seek(OBJECT:([transport].[dbo].[tickets].[PK__tickets__3213E83FD37AF2AF]),
---       SEEK:([transport].[dbo].[tickets].[id]=[transport].[dbo].[tickets].[id]) 
---       LOOKUP ORDERED FORWARD)"
-
-select *
-from tickets
-         with (index (idx_exp_dte))
-
-create nonclustered index idx_price on tickets(name, price)
-
--- |--Clustered Index Scan(OBJECT:([transport].[dbo].[tickets].[PK__tickets__3213E83FD37AF2AF]),
--- WHERE:([transport].[dbo].[tickets].[price]=[@1]))
-select *
-from tickets
-where price = 25.5
-
---   |--Index Scan(OBJECT:([transport].[dbo].[tickets].[idx_price]),
---   WHERE:([transport].[dbo].[tickets].[price]=[@1]))
-select name, price
-from tickets
-where price = 25.5
-
-SET SHOWPLAN_TEXT OFF
-go
-SET SHOWPLAN_ALL OFF
-go
-SET SHOWPLAN_XML OFF
-go
-SET STATISTICS PROFILE OFF
-go
-SET STATISTICS XML OFF
-
-drop table tickets;
+begin try
+    declare @query varchar(255) = concat('select ', 'idx', ' from routes')
+    exec(@query)
+end try
+begin catch
+    select error_number()  as code,
+           error_message() as message
+end catch
