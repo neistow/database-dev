@@ -1,49 +1,80 @@
-alter table vehicle_types
-    add vehicle_count int;
+create table vehicles_to_insert
+(
+    row_id     int primary key identity (1,1),
+    identifier char(24) unique not null,
+    seats      tinyint check (seats > 10 and seats < 100),
+    type_id    int             not null,
+    route_id   int             not null,
+)
 
-declare cur1 cursor local scroll_locks
-    for select v.type_id, count(*) c
-        from vehicles v
-        group by v.type_id
-open cur1
+create proc sp_populate_vehicles @bulk_update bit, @row_id int, @processed_rows int output
+as
+declare @added_rows int = 0
+    set @processed_rows = 0
 
-declare @t int, @q int;
-fetch next from cur1 into @t, @q;
+declare @id int, @identifier char(24), @seats tinyint, @type_id int, @route_id int
+    if @bulk_update = 1
+        begin
+            declare cur cursor local fast_forward
+                for select * from vehicles_to_insert
+            open cur
 
-while @@fetch_status = 0
-    begin
-        update vehicle_types set vehicle_count = @q where id = @t;
-        fetch next from cur1 into @t, @q;
-    end
-close cur1;
-deallocate cur1;
+            fetch next FROM cur into @id, @identifier, @seats, @type_id, @route_id
+            while @@fetch_status = 0
+                begin
+                    if not exists(select 1 from routes where id = @route_id)
+                        throw 50001, 'route doesnt exist', 1
 
------
+                    if not exists(select 1 from vehicle_types where id = @type_id)
+                        throw 50001, 'type doesnt exist', 1
 
-declare cur2 cursor local scroll_locks
-    for select id
-        from vehicle_types
-open cur2
+                    insert into vehicles (identifier, seats, type_id) values (@identifier, @seats, @type_id)
+                    insert into vehicle_routes (vehicle_id, route_id, active) values (@@identity, @route_id, 1)
+                    delete from vehicles_to_insert where row_id = @id
 
-declare @type int;
-fetch next from cur2 into @type;
+                    set @processed_rows = @processed_rows + 1
+                    set @added_rows = @added_rows + 2
 
-declare @type_qty int;
-while @@fetch_status = 0
-    begin
-        select @type_qty = count(*) from vehicles where type_id = @type;
-        update vehicle_types set vehicle_count = @type_qty where current of cur2;
-        fetch next from cur2 into @type;
-    end
-close cur2;
-deallocate cur2;
+                    fetch next FROM cur into @id, @identifier, @seats, @type_id, @route_id
+                end
 
------
+            close cur
+            deallocate cur
+        end
+    else
+        begin
+            if @row_id is null
+                throw 50001, 'row is null', 1
 
-update vehicle_types
-set vehicle_count = 0;
-update vehicle_types
-set vehicle_count = (
-    select count(*)
-    from vehicles
-    where type_id = vehicle_types.id)
+            select @id = row_id,
+                   @identifier = identifier,
+                   @seats = seats,
+                   @type_id = type_id,
+                   @route_id = route_id
+            from vehicles_to_insert
+            where row_id = @row_id
+
+            if @id is null
+                throw 50001, 'row doesnt exist', 1
+
+            if not exists(select 1 from routes where id = @route_id)
+                throw 50001, 'route doesnt exist', 1
+
+            if not exists(select 1 from vehicle_types where id = @type_id)
+                throw 50001, 'type doesnt exist', 1
+
+            insert into vehicles(identifier, seats, type_id) values (@identifier, @seats, @type_id)
+            print @@identity
+            insert into vehicle_routes (vehicle_id, route_id, active) values (@@identity, @route_id, 1)
+            delete from vehicles_to_insert where row_id = @id
+
+            set @processed_rows = 1
+            set @added_rows = 2
+        end
+
+    return @added_rows
+
+
+declare @temp int;
+exec sp_populate_vehicles 1, null, @processed_rows = @temp output
+print @temp
