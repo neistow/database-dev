@@ -1,36 +1,49 @@
-declare @current_date datetime2 = getdate()
+alter table vehicle_types
+    add vehicle_count int;
 
-declare @other_date datetime2;
-set @other_date = '2022-01-14 11:41:00'
+declare cur1 cursor local scroll_locks
+    for select v.type_id, count(*) c
+        from vehicles v
+        group by v.type_id
+open cur1
 
-print @current_date
-print @other_date
+declare @t int, @q int;
+fetch next from cur1 into @t, @q;
 
-select datediff(hour, @other_date, @current_date)
-
-declare @total_vehicle_count int;
-select @total_vehicle_count = count(*)
-from vehicles;
-
-if @total_vehicle_count < 10
+while @@fetch_status = 0
     begin
-        select id, identifier from vehicles
+        update vehicle_types set vehicle_count = @q where id = @t;
+        fetch next from cur1 into @t, @q;
     end
-else
-    begin
-        declare @i int = 10;
-        while @i < 15
-            begin
-                insert into routes(number) values (concat('route ', @i))
-                set @i = @i + 1
-            end
-    end
+close cur1;
+deallocate cur1;
 
-begin try
-    declare @query varchar(255) = concat('select ', 'idx', ' from routes')
-    exec(@query)
-end try
-begin catch
-    select error_number()  as code,
-           error_message() as message
-end catch
+-----
+
+declare cur2 cursor local scroll_locks
+    for select id
+        from vehicle_types
+open cur2
+
+declare @type int;
+fetch next from cur2 into @type;
+
+declare @type_qty int;
+while @@fetch_status = 0
+    begin
+        select @type_qty = count(*) from vehicles where type_id = @type;
+        update vehicle_types set vehicle_count = @type_qty where current of cur2;
+        fetch next from cur2 into @type;
+    end
+close cur2;
+deallocate cur2;
+
+-----
+
+update vehicle_types
+set vehicle_count = 0;
+update vehicle_types
+set vehicle_count = (
+    select count(*)
+    from vehicles
+    where type_id = vehicle_types.id)
