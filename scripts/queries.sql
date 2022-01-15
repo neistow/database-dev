@@ -1,53 +1,99 @@
-create function fn_get_average_seats(@veh_typ int)
-    returns int
-as
-begin
-    declare @avg_seats int
-    select @avg_seats = avg(seats) from vehicles where type_id = @veh_typ
-    return @avg_seats
-end
-go
+begin transaction
+declare @result int
+exec sp_populate_vehicles 1, null, @processed_rows = @result output
+commit transaction
 
-select *, fn_get_average_seats(type_id) as avg_type_seats
+begin transaction
+update vehicles
+set seats = seats + 1
+if exists(select 1
+          from vehicles
+          where seats = 99)
+    rollback transaction
+else
+    commit transaction
+
+
+begin transaction
+select *
 from vehicles
+where seats > 25
+select *
+from routes
+where number like '%oute %'
+commit transaction
 
-create function fn_get_total_routes_by_vehicle()
-    returns table
-        as
-        return select v.id, count(vr.route_id) as total_routes
-               from vehicles v
-                        left join vehicle_routes vr on v.id = vr.vehicle_id
-               group by v.id
 
-select r.id, v.identifier, r.total_routes
-from fn_get_total_routes_by_vehicle() r
-         left join vehicles v on v.id = r.id
+--- try-catch
+begin try
+    begin transaction
+        update vehicles set seats = seats + 10000
+    commit transaction
+end try
+begin catch
+    rollback transaction
+end catch
 
-create function fn_get_vehicles_with_no_routes()
-    returns @vehicles_with_no_routes table
-                                     (
-                                         id         int,
-                                         identifier char(24)
-                                     )
-as
-begin
-    insert into @vehicles_with_no_routes
-    select v.id, v.identifier
-    from vehicles v
-             left join vehicle_routes vr on v.id = vr.vehicle_id
-    where vr.vehicle_id is null
-    return
-end
+--- nested
+begin transaction one
+select *
+from routes
+update routes
+set number = concat('_', number)
+select *
+from routes
+begin transaction two
+update routes
+set number = concat('__', number)
+select *
+from routes
+rollback transaction
+select *
+from routes
+
+--- savepoints
+begin transaction one
+update routes
+set number = concat('_', number)
+select *
+from routes
+
+save transaction one
+
+update routes
+set number = concat('__', number)
+select *
+from routes
+
+rollback transaction one
 
 select *
-from fn_get_vehicles_with_no_routes()
+from routes
 
-create function fn_get_top_seats(@type_id int)
-    returns table
-as
-    return select max(v.seats) as top_seats
-    from vehicles v
-    where v.type_id = @type_id
-    
+--- deadlock example
 
-select * from vehicle_types vt cross apply fn_get_top_seats(vt.id)
+set transaction isolation level serializable
+begin transaction
+update routes set number = concat('route-', id)
+select * from vehicles;
+commit tran
+
+--- to fix lower isolation
+set transaction isolation level serializable
+begin transaction
+update vehicles set identifier = identifier
+select * from routes
+commit transaction
+
+--- read uncommitted deadlock
+set transaction isolation level read uncommitted
+begin transaction
+update vehicles set identifier = identifier
+update routes set number = number
+commit transaction
+
+set transaction isolation level read uncommitted
+begin transaction
+update routes set number = number
+update vehicles set identifier = identifier
+commit transaction
