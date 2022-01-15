@@ -1,80 +1,53 @@
-create table vehicles_to_insert
-(
-    row_id     int primary key identity (1,1),
-    identifier char(24) unique not null,
-    seats      tinyint check (seats > 10 and seats < 100),
-    type_id    int             not null,
-    route_id   int             not null,
-)
-
-create proc sp_populate_vehicles @bulk_update bit, @row_id int, @processed_rows int output
+create function fn_get_average_seats(@veh_typ int)
+    returns int
 as
-declare @added_rows int = 0
-    set @processed_rows = 0
+begin
+    declare @avg_seats int
+    select @avg_seats = avg(seats) from vehicles where type_id = @veh_typ
+    return @avg_seats
+end
+go
 
-declare @id int, @identifier char(24), @seats tinyint, @type_id int, @route_id int
-    if @bulk_update = 1
-        begin
-            declare cur cursor local fast_forward
-                for select * from vehicles_to_insert
-            open cur
+select *, fn_get_average_seats(type_id) as avg_type_seats
+from vehicles
 
-            fetch next FROM cur into @id, @identifier, @seats, @type_id, @route_id
-            while @@fetch_status = 0
-                begin
-                    if not exists(select 1 from routes where id = @route_id)
-                        throw 50001, 'route doesnt exist', 1
+create function fn_get_total_routes_by_vehicle()
+    returns table
+        as
+        return select v.id, count(vr.route_id) as total_routes
+               from vehicles v
+                        left join vehicle_routes vr on v.id = vr.vehicle_id
+               group by v.id
 
-                    if not exists(select 1 from vehicle_types where id = @type_id)
-                        throw 50001, 'type doesnt exist', 1
+select r.id, v.identifier, r.total_routes
+from fn_get_total_routes_by_vehicle() r
+         left join vehicles v on v.id = r.id
 
-                    insert into vehicles (identifier, seats, type_id) values (@identifier, @seats, @type_id)
-                    insert into vehicle_routes (vehicle_id, route_id, active) values (@@identity, @route_id, 1)
-                    delete from vehicles_to_insert where row_id = @id
+create function fn_get_vehicles_with_no_routes()
+    returns @vehicles_with_no_routes table
+                                     (
+                                         id         int,
+                                         identifier char(24)
+                                     )
+as
+begin
+    insert into @vehicles_with_no_routes
+    select v.id, v.identifier
+    from vehicles v
+             left join vehicle_routes vr on v.id = vr.vehicle_id
+    where vr.vehicle_id is null
+    return
+end
 
-                    set @processed_rows = @processed_rows + 1
-                    set @added_rows = @added_rows + 2
+select *
+from fn_get_vehicles_with_no_routes()
 
-                    fetch next FROM cur into @id, @identifier, @seats, @type_id, @route_id
-                end
+create function fn_get_top_seats(@type_id int)
+    returns table
+as
+    return select max(v.seats) as top_seats
+    from vehicles v
+    where v.type_id = @type_id
+    
 
-            close cur
-            deallocate cur
-        end
-    else
-        begin
-            if @row_id is null
-                throw 50001, 'row is null', 1
-
-            select @id = row_id,
-                   @identifier = identifier,
-                   @seats = seats,
-                   @type_id = type_id,
-                   @route_id = route_id
-            from vehicles_to_insert
-            where row_id = @row_id
-
-            if @id is null
-                throw 50001, 'row doesnt exist', 1
-
-            if not exists(select 1 from routes where id = @route_id)
-                throw 50001, 'route doesnt exist', 1
-
-            if not exists(select 1 from vehicle_types where id = @type_id)
-                throw 50001, 'type doesnt exist', 1
-
-            insert into vehicles(identifier, seats, type_id) values (@identifier, @seats, @type_id)
-            print @@identity
-            insert into vehicle_routes (vehicle_id, route_id, active) values (@@identity, @route_id, 1)
-            delete from vehicles_to_insert where row_id = @id
-
-            set @processed_rows = 1
-            set @added_rows = 2
-        end
-
-    return @added_rows
-
-
-declare @temp int;
-exec sp_populate_vehicles 1, null, @processed_rows = @temp output
-print @temp
+select * from vehicle_types vt cross apply fn_get_top_seats(vt.id)
