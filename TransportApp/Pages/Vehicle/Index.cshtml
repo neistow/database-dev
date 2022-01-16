@@ -1,0 +1,37 @@
+﻿@page
+@model TransportApp.Pages.Vehicle.IndexModel
+
+@{
+    ViewData["Title"] = "Vehicles";
+}
+
+<a asp-page="Create" class="btn btn-success">Create</a>
+
+<table class="table">
+    <thead class="thead-dark">
+    <tr>
+        <th scope="col">#</th>
+        <th scope="col">Identifier</th>
+        <th scope="col">Seats</th>
+        <th scope="col">Typeid</th>
+        <th scope="col">Actions</th>
+    </tr>
+    </thead>
+    <tbody>
+
+    @foreach (var vehicle in Model.VehicleList)
+    {
+        <tr>
+            <th scope="row">@vehicle.Id</th>
+            <td>@vehicle.Identifier</td>
+            <td>@vehicle.Seats</td>
+            <td>@vehicle.TypeId</td>
+            <td>
+                <a asp-page="./Edit" asp-route-id="@vehicle.Id" class="btn btn-warning">Edit</a>
+                <a asp-page="./Delete" asp-route-id="@vehicle.Id" class="btn btn-danger">Delete</a>
+            </td>
+        </tr>
+    }
+
+    </tbody>
+</table>
