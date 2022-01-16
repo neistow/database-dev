@@ -1,0 +1,6 @@
+<ng-container *ngIf="vehicle$ | async as vehicle">
+    <app-vehicle-form
+            [model]="vehicle"
+            (submit)="onSubmit($event)">
+    </app-vehicle-form>
+</ng-container>

@@ -1,0 +1,22 @@
+<form [formGroup]="form" (ngSubmit)="onSubmit()" class="form">
+
+    <mat-form-field appearance="fill">
+        <mat-label>Identifier</mat-label>
+        <input matInput formControlName="identifier">
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+        <mat-label>Seats</mat-label>
+        <input matInput formControlName="seats">
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+        <mat-label>TypeId</mat-label>
+        <input matInput formControlName="typeId">
+    </mat-form-field>
+
+    <button type="submit" mat-raised-button color="primary">
+        Save
+    </button>
+
+</form>
